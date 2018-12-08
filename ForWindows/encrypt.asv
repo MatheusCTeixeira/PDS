@@ -9,42 +9,59 @@ function [p, frequency_modulation] = encrypt_s(audio, carrier, p, frequency_modu
 [x,fs] = audioread(audio); % Lê o sinal de audio
 [carrier, fs_carrier] = audioread(carrier); % Lê o sinal de audio da portadora
 
+if (fs ~= fs_carrier)
+    disp('The frequency of audio and carrier are not compatible.');
+    return;
+end
 % Set same lenght to signals
-[x, carrier] = padding_less_sign(x, carrier, 2);
-
+[sz_x, dm_x] = size(x(1:end, 1));
+[sz_y, dm_y] = size(carrier(1:end, 1));
+if (sz_x > sz_y)
+    k = zeros(sz_x - sz_y, 2);
+    carrier = [carrier;k];
+    
+else
+    k = zeros(sz_y - sz_x, 2);
+    x = [x;k];
+end
 % Filter to limit the band of signals
-order_filter = 20;
+order_filter = 120;
 filter_fc = 2*pi*4000/fs;
 filter_fir = fir1(order_filter, filter_fc, hamming(order_filter + 1));
 
-x = filter(filter_fir, 1, x);       % filter message (limit band)
-y = filter(filter_fir, 1, carrier); % filter carrier (limit band)
+% Apply filter
+x = filter(filter_fir, 1, x);
+y = filter(filter_fir, 1, carrier);
 
+% Resample
+x = resample(x, p, 1);
+y = resample(y, p, 1);
 
-x = resample(x, p, 1); % Resample message
-y = resample(y, p, 1); % Resample carrier
+% New frequency
+fu = fs * p;
 
-
-fu = fs * p;             % New frequency
-
-
-x = modulate(x, frequency_modulation ,fu,'am'); % AM to hide the data signal
+% AM to hide the data signal
+x = modulate(x, frequency_modulation ,fu,'am');
 
 r = y + x;
 
 audiowrite('./encrypted_signal.wav',  r, fu);
+
+figure
+plot_fft(r, fu, 'Encrypted signals');
+line([20000 20000], [0 0.04], 'color', 'r')
+
 end
 
-function [x1, x2] = padding_less_sign(x1, x2, channels)
+function [x1, x2] = equalize_sign_size(x1, x2)
     % Set same lenght to signals
     [sz_x, dm_x] = size(x1(1:end, 1));
     [sz_y, dm_y] = size(x2(1:end, 1));
-        
-    padding_vector = zeros(abs(sz_x - sz_y), channels);
+    padding = zeros(sz_x - sz_y, dm_x);
     if (sz_x > sz_y)        
-        x2 = [x2; padding_vector];
+        x2 = [x2;k];
     else        
-        x1 = [x1; padding_vector];
+        x1 = [x1;k];
     end
 end
 

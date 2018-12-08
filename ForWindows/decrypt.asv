@@ -1,20 +1,32 @@
+%decrypt_s('./encrypted_signal.wav', 10, 2E5);
 decrypt_s('./encrypted_signal.wav',10, 2E5);
 
 function [audio] = decrypt_s(audio, p, frequency_modulation)
 [audio, fs] = audioread(audio);
 
-order_filter = 120;
+order_filter = 40;
+
 filter_fc = 2*pi*20000/fs;
 filter_fir = fir1(order_filter, filter_fc, 'high', hamming(order_filter + 1));
-
 audio = filter(filter_fir, 1, audio);
 
+figure
+plot_fft(audio, fs, 'filtred encrypted audio');
+
 audio = amdemod(audio, frequency_modulation, fs);
+
+figure
+plot_fft(audio, fs, 'demoduled');
 
 audio = resample(audio, 1, p);
 fs = fs / p;
 
+figure
+plot_fft(audio, fs, 'resampled');
+
 audiowrite('./decrypted_signal.wav',  audio, fs);
+figure
+plot_fft(audio, fs, 'recovered');
 end
 
 
