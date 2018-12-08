@@ -1,46 +1,47 @@
 
-[p, frequency_modulation] = encrypt_s('./message.mp3', './carrier.mp3', 10, 2E5);
+[p, frequency_modulation] = encrypt_s('./audio/message.mp3', './audio/carrier.mp3', 10, 25000); 
 
-%audio -> the message to be hide
+%audio   -> the message to be hide
 %carrier -> the disguise audio
-%key -> secret key [20k - 30k]
-%p -> oversample [10-20]
+%p       -> oversample [10-20]
+%frequency_modulation -> frequency where the message will be modulated [20k - 30k]
 function [p, frequency_modulation] = encrypt_s(audio, carrier, p, frequency_modulation)
-[x,fs] = audioread(audio); % Lê o sinal de audio
-[carrier, fs_carrier] = audioread(carrier); % Lê o sinal de audio da portadora
+[x,fs] = audioread(audio);                  % message 
+[carrier, fs_carrier] = audioread(carrier); % carrier
 
-% Set same lenght to signals
-[x, carrier] = padding_less_sign(x, carrier, 2);
+[x, carrier] = padding_less_sign(x, carrier, 2); % set same lenght to signals
 
 % Filter to limit the band of signals
-order_filter = 20;
-filter_fc = 2*pi*4000/fs;
+order_filter = 20;         % order of filter
+filter_fc = 2*pi*4000/fs;  % cutoff frequency
 filter_fir = fir1(order_filter, filter_fc, hamming(order_filter + 1));
 
 x = filter(filter_fir, 1, x);       % filter message (limit band)
 y = filter(filter_fir, 1, carrier); % filter carrier (limit band)
 
 
-x = resample(x, p, 1); % Resample message
-y = resample(y, p, 1); % Resample carrier
+x = resample(x, p, 1); % resample message
+y = resample(y, p, 1); % resample carrier
 
+fu = fs * p; % new frequency
 
-fu = fs * p;             % New frequency
+x = modulate(x, frequency_modulation ,fu,'am');  % AM to hide the data signal
 
-
-x = modulate(x, frequency_modulation ,fu,'am'); % AM to hide the data signal
-
-r = y + x;
-
-audiowrite('./encrypted_signal.wav',  r, fu);
+r = y + x; % sum signs
+audiowrite('./output/encrypted_signal.wav',  r, fu);
 end
 
-function [x1, x2] = padding_less_sign(x1, x2, channels)
-    % Set same lenght to signals
+% Set same lenght to signals. The signs are padding with zeros.
+%
+% x1, x2 -> vectors
+% num_channels -> number of channels of x1, x2 (It's expected that they are equal)
+% 
+% return two vector with the same size
+function [x1, x2] = padding_less_sign(x1, x2, num_channels)    
     [sz_x, dm_x] = size(x1(1:end, 1));
     [sz_y, dm_y] = size(x2(1:end, 1));
         
-    padding_vector = zeros(abs(sz_x - sz_y), channels);
+    padding_vector = zeros(abs(sz_x - sz_y), num_channels);
     if (sz_x > sz_y)        
         x2 = [x2; padding_vector];
     else        
@@ -48,7 +49,7 @@ function [x1, x2] = padding_less_sign(x1, x2, channels)
     end
 end
 
-% Plota a transformada de fourier de um sinal %
+% FFT plot graph %
 function plot_fft(y, Fs, Title)    
     L = length(y);
     NFFT = 2^nextpow2(L);
